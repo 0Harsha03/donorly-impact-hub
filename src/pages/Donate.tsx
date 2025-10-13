@@ -74,11 +74,21 @@ const Donate = () => {
       timestamp: new Date().toISOString(),
     });
 
+    // Save to localStorage
+    const existingDonations = JSON.parse(localStorage.getItem("donationData") || "[]");
+    const newDonation = {
+      ...data,
+      id: Date.now(),
+      date: new Date().toISOString(),
+      coordinates,
+    };
+    localStorage.setItem("donationData", JSON.stringify([...existingDonations, newDonation]));
+
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    toast.success("Thank you for your generous donation! 🎉", {
-      description: "Your donation request has been submitted successfully.",
+    toast.success("✅ Thank you for your donation!", {
+      description: "Your donation details have been saved successfully.",
     });
 
     // Reset form and navigate
@@ -86,7 +96,7 @@ const Donate = () => {
     setCoordinates(null);
     
     setTimeout(() => {
-      navigate("/");
+      navigate("/donor-dashboard");
     }, 2000);
   };
 

@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [userType, setUserType] = useState<"donor" | "ngo">("donor");
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -18,10 +20,16 @@ const Auth = () => {
     // Simulate authentication
     setTimeout(() => {
       setIsLoading(false);
-      toast.success("Welcome back! Redirecting to donation form...");
-      // Redirect to donate page after successful sign-in
+      localStorage.setItem("userType", userType);
+      toast.success(`Welcome back! Redirecting to ${userType} dashboard...`);
+      
       setTimeout(() => {
-        navigate("/donate");
+        if (userType === "donor") {
+          navigate("/donor-dashboard");
+        } else {
+          const ngoProfile = localStorage.getItem("ngoProfile");
+          navigate(ngoProfile ? "/ngo-dashboard" : "/ngo-profile");
+        }
       }, 1000);
     }, 1500);
   };
@@ -33,9 +41,15 @@ const Auth = () => {
     // Simulate registration
     setTimeout(() => {
       setIsLoading(false);
-      toast.success("Account created! Redirecting to donation form...");
+      localStorage.setItem("userType", userType);
+      toast.success(`Account created! Redirecting to ${userType} dashboard...`);
+      
       setTimeout(() => {
-        navigate("/donate");
+        if (userType === "donor") {
+          navigate("/donor-dashboard");
+        } else {
+          navigate("/ngo-profile");
+        }
       }, 1000);
     }, 1500);
   };
@@ -52,6 +66,20 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="space-y-4 mb-6">
+            <Label>I am a:</Label>
+            <RadioGroup value={userType} onValueChange={(value) => setUserType(value as "donor" | "ngo")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="donor" id="donor" />
+                <Label htmlFor="donor" className="cursor-pointer">Donor</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="ngo" id="ngo" />
+                <Label htmlFor="ngo" className="cursor-pointer">NGO / Organization</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
