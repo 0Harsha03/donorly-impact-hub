@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import ImageCarousel from "@/components/ImageCarousel";
+import TopBanner from "@/components/TopBanner";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -55,9 +57,14 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <TopBanner />
+      <div className="flex items-center justify-center p-4 py-12">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardContent className="pt-6">
+            <ImageCarousel />
+          </CardContent>
+          <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Welcome to Donorly
           </CardTitle>
@@ -106,7 +113,11 @@ const Auth = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  className="w-full transform transition-transform duration-200 hover:scale-105 active:scale-95" 
+                  disabled={isLoading}
+                >
                   {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
@@ -142,14 +153,19 @@ const Auth = () => {
                     minLength={8}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  className="w-full transform transition-transform duration-200 hover:scale-105 active:scale-95" 
+                  disabled={isLoading}
+                >
                   {isLoading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

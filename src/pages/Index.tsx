@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import Navbar from "@/components/Navbar";
+import TopBanner from "@/components/TopBanner";
 import heroImage from "@/assets/hero-image.jpg";
 
 const Index = () => {
@@ -83,6 +84,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <TopBanner />
       <Navbar />
 
       {/* Hero Section */}
