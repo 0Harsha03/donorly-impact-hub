@@ -10,12 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft, Building2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const ngoProfileSchema = z.object({
   name: z.string().min(1, "NGO name is required"),
   ngoId: z.string().min(1, "NGO ID is required"),
   logo: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
   description: z.string().min(10, "Description must be at least 10 characters"),
+  location: z.string().min(1, "Location is required"),
 });
 
 type NGOProfileData = z.infer<typeof ngoProfileSchema>;
@@ -35,23 +37,86 @@ const NGOProfile = () => {
   });
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("ngoProfile");
-    if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
-      reset(profile);
+    checkAuthAndLoadProfile();
+  }, []);
+
+  const checkAuthAndLoadProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    // Load existing NGO profile if exists
+    const { data: ngoData } = await supabase
+      .from("ngos")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (ngoData) {
+      reset({
+        name: ngoData.ngo_name,
+        ngoId: ngoData.ngo_id,
+        logo: ngoData.logo_url || "",
+        description: ngoData.description,
+        location: ngoData.location,
+      });
       setIsEditing(true);
     }
-  }, [reset]);
+  };
 
-  const onSubmit = (data: NGOProfileData) => {
+  const onSubmit = async (data: NGOProfileData) => {
     setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
     
-    setTimeout(() => {
-      localStorage.setItem("ngoProfile", JSON.stringify(data));
-      toast.success(isEditing ? "Profile updated successfully!" : "Profile created successfully!");
-      setIsLoading(false);
-      navigate("/ngo-dashboard");
-    }, 1000);
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    if (isEditing) {
+      // Update existing profile
+      const { error } = await supabase
+        .from("ngos")
+        .update({
+          ngo_name: data.name,
+          ngo_id: data.ngoId,
+          logo_url: data.logo || null,
+          description: data.description,
+          location: data.location,
+        })
+        .eq("user_id", user.id);
+
+      if (error) {
+        toast.error("Failed to update profile: " + error.message);
+        setIsLoading(false);
+        return;
+      }
+    } else {
+      // Create new profile
+      const { error } = await supabase
+        .from("ngos")
+        .insert({
+          user_id: user.id,
+          ngo_name: data.name,
+          ngo_id: data.ngoId,
+          logo_url: data.logo || null,
+          description: data.description,
+          location: data.location,
+        });
+
+      if (error) {
+        toast.error("Failed to create profile: " + error.message);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    toast.success(isEditing ? "Profile updated successfully!" : "Profile created successfully!");
+    setIsLoading(false);
+    navigate("/ngo-dashboard");
   };
 
   return (
@@ -113,6 +178,19 @@ const NGOProfile = () => {
               />
               {errors.logo && (
                 <p className="text-sm text-destructive">{errors.logo.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location">Location (City/District) *</Label>
+              <Input
+                id="location"
+                placeholder="Mumbai, Maharashtra"
+                {...register("location")}
+                className={errors.location ? "border-destructive" : ""}
+              />
+              {errors.location && (
+                <p className="text-sm text-destructive">{errors.location.message}</p>
               )}
             </div>
 

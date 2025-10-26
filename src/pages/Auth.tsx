@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,51 +9,142 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import ImageCarousel from "@/components/ImageCarousel";
 import TopBanner from "@/components/TopBanner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [userType, setUserType] = useState<"donor" | "ngo">("donor");
 
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        // Check user role and redirect
+        checkUserRoleAndRedirect();
+      }
+    });
+  }, []);
+
+  const checkUserRoleAndRedirect = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (roles?.role === "donor") {
+      navigate("/donor-dashboard");
+    } else if (roles?.role === "ngo") {
+      // Check if NGO profile exists
+      const { data: ngoProfile } = await supabase
+        .from("ngos")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+      
+      navigate(ngoProfile ? "/ngo-dashboard" : "/ngo-profile");
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate authentication
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast.error(error.message);
       setIsLoading(false);
-      localStorage.setItem("userType", userType);
-      toast.success(`Welcome back! Redirecting to ${userType} dashboard...`);
-      
-      setTimeout(() => {
-        if (userType === "donor") {
-          navigate("/donor-dashboard");
-        } else {
-          const ngoProfile = localStorage.getItem("ngoProfile");
-          navigate(ngoProfile ? "/ngo-dashboard" : "/ngo-profile");
-        }
-      }, 1000);
-    }, 1500);
+      return;
+    }
+
+    toast.success("Welcome back!");
+    await checkUserRoleAndRedirect();
+    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate registration
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget);
+    const fullName = formData.get("fullName") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const phone = formData.get("phone") as string;
+    const location = formData.get("location") as string;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+
+    if (error) {
+      toast.error(error.message);
       setIsLoading(false);
-      localStorage.setItem("userType", userType);
-      toast.success(`Account created! Redirecting to ${userType} dashboard...`);
-      
-      setTimeout(() => {
-        if (userType === "donor") {
-          navigate("/donor-dashboard");
-        } else {
-          navigate("/ngo-profile");
-        }
-      }, 1000);
-    }, 1500);
+      return;
+    }
+
+    if (!data.user) {
+      toast.error("Failed to create account");
+      setIsLoading(false);
+      return;
+    }
+
+    // Create profile
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        id: data.user.id,
+        full_name: fullName,
+        email,
+        phone_number: phone,
+        location,
+      });
+
+    if (profileError) {
+      toast.error("Failed to create profile: " + profileError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    // Create user role
+    const { error: roleError } = await supabase
+      .from("user_roles")
+      .insert({
+        user_id: data.user.id,
+        role: userType,
+      });
+
+    if (roleError) {
+      toast.error("Failed to set user role: " + roleError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    toast.success("Account created successfully!");
+    
+    if (userType === "donor") {
+      navigate("/donor-dashboard");
+    } else {
+      navigate("/ngo-profile");
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -99,6 +190,7 @@ const Auth = () => {
                   <Label htmlFor="signin-email">Email</Label>
                   <Input
                     id="signin-email"
+                    name="email"
                     type="email"
                     placeholder="donor@example.com"
                     required
@@ -108,6 +200,7 @@ const Auth = () => {
                   <Label htmlFor="signin-password">Password</Label>
                   <Input
                     id="signin-password"
+                    name="password"
                     type="password"
                     placeholder="••••••••"
                     required
@@ -129,6 +222,7 @@ const Auth = () => {
                   <Label htmlFor="signup-name">Full Name</Label>
                   <Input
                     id="signup-name"
+                    name="fullName"
                     type="text"
                     placeholder="John Doe"
                     required
@@ -138,8 +232,29 @@ const Auth = () => {
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
                     id="signup-email"
+                    name="email"
                     type="email"
                     placeholder="donor@example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone">Phone Number</Label>
+                  <Input
+                    id="signup-phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+91 1234567890"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-location">Location (City/District)</Label>
+                  <Input
+                    id="signup-location"
+                    name="location"
+                    type="text"
+                    placeholder="Mumbai, Maharashtra"
                     required
                   />
                 </div>
@@ -147,6 +262,7 @@ const Auth = () => {
                   <Label htmlFor="signup-password">Password</Label>
                   <Input
                     id="signup-password"
+                    name="password"
                     type="password"
                     placeholder="••••••••"
                     required

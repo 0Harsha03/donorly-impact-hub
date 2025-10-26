@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const donationSchema = z.object({
   donationType: z.string().min(1, "Please select a donation type"),
@@ -68,24 +69,28 @@ const Donate = () => {
   };
 
   const onSubmit = async (data: DonationFormData) => {
-    console.log("Donation Data:", {
-      ...data,
-      coordinates,
-      timestamp: new Date().toISOString(),
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast.error("You must be logged in to donate");
+      navigate("/auth");
+      return;
+    }
 
-    // Save to localStorage
-    const existingDonations = JSON.parse(localStorage.getItem("donationData") || "[]");
-    const newDonation = {
-      ...data,
-      id: Date.now(),
-      date: new Date().toISOString(),
-      coordinates,
-    };
-    localStorage.setItem("donationData", JSON.stringify([...existingDonations, newDonation]));
+    const { error } = await supabase
+      .from("donations")
+      .insert({
+        donor_id: user.id,
+        donation_type: data.donationType,
+        description: data.description,
+        location: data.location,
+        quantity: data.quantity || null,
+      });
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (error) {
+      toast.error("Failed to save donation: " + error.message);
+      return;
+    }
 
     toast.success("✅ Thank you for your donation!", {
       description: "Your donation details have been saved successfully.",
